@@ -90,7 +90,7 @@ textarea{flex:1;min-width:0;resize:none;font:inherit;color:var(--ink);background
 <header>
   <div class="dev">
     <h1>LoRaDev</h1>
-    <p id="sub">App v3 · Bluetooth · LoRa 433.175 MHz</p>
+    <p id="sub">App v4 · Bluetooth · LoRa 433.175 MHz</p>
   </div>
   <span id="pill" class="pill off">Offline</span>
   <button id="connect" class="btn">Connect</button>
@@ -222,8 +222,10 @@ function onDisconnected(){
   addSys('Bluetooth disconnected');
 }
 $('all').addEventListener('click', ()=>{ if(state==='off'){ device=null; connect(true); } });
+// Bluefy on iPhone does not match the board by name, so there we list all devices
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 btn.addEventListener('click', ()=>{
-  if(state==='off') connect(false);
+  if(state==='off') connect(IOS);
   else if(device && device.gatt.connected) device.gatt.disconnect();
 });
 
