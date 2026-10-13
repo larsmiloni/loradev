@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f3b33">
+<title>LoRaDev Messenger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one-screen messenger. Header (device + status), scrolling thread, composer pinned at the bottom. */
+:root{
+  --bg:#eef2f0; --surface:#ffffff; --ink:#14201c; --muted:#5d6b66; --line:#d5ddd9;
+  --accent:#0f6b5a; --accent-ink:#ffffff; --bubble-in:#ffffff; --bubble-out:#0f6b5a;
+  --ok:#1f8a4c; --warn:#b7791f; --bad:#b83a3a;
+  --head:#0f3b33; --head-ink:#e7f2ee;
+  --f-body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c1412; --surface:#15211e; --ink:#e3ece8; --muted:#90a39c; --line:#26352f;
+    --accent:#3fb894; --accent-ink:#06231c; --bubble-in:#1b2a26; --bubble-out:#1f7a66;
+    --ok:#4cc27e; --warn:#e0a84a; --bad:#e06a6a; --head:#0a201b; --head-ink:#d8ece4;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c1412; --surface:#15211e; --ink:#e3ece8; --muted:#90a39c; --line:#26352f;
+  --accent:#3fb894; --accent-ink:#06231c; --bubble-in:#1b2a26; --bubble-out:#1f7a66;
+  --ok:#4cc27e; --warn:#e0a84a; --bad:#e06a6a; --head:#0a201b; --head-ink:#d8ece4;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;
+  display:flex;flex-direction:column}
+
+header{background:var(--head);color:var(--head-ink);
+  padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 12px;
+  display:flex;align-items:center;gap:12px}
+.dev{flex:1;min-width:0}
+.dev h1{margin:0;font-size:18px;letter-spacing:.01em}
+.dev p{margin:2px 0 0;font-family:var(--f-mono);font-size:12px;opacity:.8;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{font-family:var(--f-mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+  padding:4px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill.off{color:#f0b4b4}.pill.on{color:#9fe3bf}.pill.busy{color:#f3d08d}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;
+  padding:9px 14px;font-weight:700}
+header .btn{background:var(--head-ink);color:var(--head)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,textarea:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+
+main{flex:1;overflow-y:auto;padding-block:16px;padding-inline:16px;
+  display:flex;flex-direction:column;gap:10px}
+.note{align-self:center;max-width:34rem;background:var(--surface);border:1px solid var(--line);
+  border-radius:12px;padding:14px 16px;color:var(--muted);font-size:14px;line-height:1.5}
+.note b{color:var(--ink)}
+.note ol{margin:6px 0 0;padding-left:20px}
+.sys{align-self:center;font-family:var(--f-mono);font-size:11px;color:var(--muted);
+  text-align:center;max-width:90%}
+.msg{max-width:80%;display:flex;flex-direction:column;gap:3px}
+.msg .b{padding:9px 13px;border-radius:16px;line-height:1.35;overflow-wrap:anywhere}
+.msg .m{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.out{align-self:flex-end;align-items:flex-end}
+.out .b{background:var(--bubble-out);color:#fff;border-bottom-right-radius:4px}
+.in{align-self:flex-start}
+.in .b{background:var(--bubble-in);border:1px solid var(--line);border-bottom-left-radius:4px}
+.in .m::before{content:"via gateway · "}
+
+footer{background:var(--surface);border-top:1px solid var(--line);
+  padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 10px)}
+.row{display:flex;gap:8px;align-items:flex-end}
+textarea{flex:1;min-width:0;resize:none;font:inherit;color:var(--ink);background:var(--bg);
+  border:1px solid var(--line);border-radius:12px;padding:10px 12px;height:44px;max-height:120px}
+.meta{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:11px;
+  color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums;gap:8px}
+.meta span:last-child{white-space:nowrap}
+.meta .over{color:var(--bad)}
+@media (prefers-reduced-motion:no-preference){ .msg{animation:pop .18s ease-out} }
+@keyframes pop{from{transform:translateY(4px);opacity:.4}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+<header>
+  <div class="dev">
+    <h1>LoRaDev</h1>
+    <p id="sub">Bluetooth · LoRa 433.175 MHz · SF12</p>
+  </div>
+  <span id="pill" class="pill off">Offline</span>
+  <button id="connect" class="btn">Connect</button>
+</header>
+
+<main id="thread" aria-live="polite">
+  <div class="note" id="intro">
+    <b>Send text messages through the LoRa network.</b>
+    <ol>
+      <li>Power the LoRaDev board and keep the phone close (Bluetooth range is short on this board).</li>
+      <li>Tap <b>Connect</b> and choose <b>LoRaDev</b> (it may be listed as P2PSRV1).</li>
+      <li>Write up to 42 characters and tap <b>Send</b>. Replies from ChirpStack appear here.</li>
+    </ol>
+  </div>
+  <div class="note" id="nobt" hidden>
+    <b>This browser has no Bluetooth.</b> On iPhone, open this page in the free
+    <b>Bluefy</b> app. On Android or a PC, use Chrome.
+  </div>
+</main>
+
+<footer>
+  <form id="form" class="row" autocomplete="off">
+    <textarea id="text" aria-label="Message" rows="1" maxlength="60" placeholder="Message to the LoRa network" disabled></textarea>
+    <button id="send" class="btn" type="submit" disabled>Send</button>
+  </form>
+  <div class="meta"><span id="hint">Not connected</span><span id="count">0 / 42</span></div>
+</footer>
+
+<script>
+/* Nordic UART Service on the LoRaDev board (see Core/BLE/ble_uart.c) */
+const NUS   = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_RX= '6e400002-b5a3-f393-e0a9-e50e24dcca9e';   // phone writes here
+const NUS_TX= '6e400003-b5a3-f393-e0a9-e50e24dcca9e';   // board notifies here
+const MAX = 42;                                         // LoRa payload limit used by the firmware
+
+const $ = id => document.getElementById(id);
+const thread=$('thread'), pill=$('pill'), btn=$('connect'), text=$('text'),
+      send=$('send'), hint=$('hint'), count=$('count');
+
+let device=null, rx=null, lineBuf='', state='off', lastOut=null, queue=[];
+
+function setState(s, h){
+  state=s;
+  pill.className='pill '+(s==='ready'?'on':s==='off'?'off':'busy');
+  pill.textContent={off:'Offline',connecting:'Connecting',ready:'Ready',busy:'Sending'}[s];
+  btn.textContent = s==='off' ? 'Connect' : 'Disconnect';
+  text.disabled = s==='off' || s==='connecting';
+  hint.textContent = h || {off:'Not connected',connecting:'Connecting…',
+    ready:'Ready to send',busy:'Sending over LoRa, waiting for reply (~40 s)'}[s];
+  updateCount();
+}
+function time(){ return new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+function addMsg(dir, body, meta){
+  $('intro').hidden = true;
+  const w=document.createElement('div'); w.className='msg '+dir;
+  const b=document.createElement('div'); b.className='b'; b.textContent=body;
+  const m=document.createElement('div'); m.className='m'; m.textContent=meta||time();
+  w.append(b,m); thread.append(w); thread.scrollTop=thread.scrollHeight;
+  return m;
+}
+function addSys(t){
+  const d=document.createElement('div'); d.className='sys'; d.textContent=t;
+  thread.append(d); thread.scrollTop=thread.scrollHeight;
+}
+function plainLen(s){ // the board turns æ/ø/å into ae/oe/aa, so they count as 2
+  return [...s].reduce((n,c)=>n+(/[æøåÆØÅ]/.test(c)?2:1),0);
+}
+function updateCount(){
+  const n=plainLen(text.value.trim());
+  count.textContent=n+' / '+MAX; count.className = n>MAX?'over':'';
+  send.disabled = state==='off'||state==='connecting'||n===0||n>MAX;
+}
+
+/* ---- lines coming from the board ---- */
+function onLine(line){
+  line=line.replace(/\r/g,'').trim();
+  if(!line) return;
+  if(line.startsWith('Connected to LoRaDev') || line==='Type a message:'){
+    if(state!=='off') setState('ready');
+    flushQueue();
+  } else if(line.startsWith('Sending:')){
+    setState('busy');
+    if(lastOut) lastOut.textContent = time()+' · sent over LoRa';
+  } else if(line.startsWith('From gateway:')){
+    const t=line.slice(13).trim();
+    if(t) addMsg('in', t);
+  } else {
+    addSys(line);
+  }
+}
+function onNotify(e){
+  lineBuf += new TextDecoder().decode(e.target.value);
+  // "From gateway: " and the text arrive as separate packets: wait for the newline
+  let i;
+  while((i=lineBuf.indexOf('\n'))>=0){ onLine(lineBuf.slice(0,i)); lineBuf=lineBuf.slice(i+1); }
+}
+
+/* ---- connect / disconnect ---- */
+async function connect(){
+  if(!navigator.bluetooth){ $('nobt').hidden=false; return; }
+  try{
+    setState('connecting');
+    if(!device){
+      // The board's advertisement has no room for the 128-bit service ID, so find it by name.
+      // (The iPhone may still show the old name P2PSRV1 from ST's test program.)
+      device = await navigator.bluetooth.requestDevice({
+        filters:[{namePrefix:'LoRaDev'},{namePrefix:'P2PSRV'},{services:[NUS]}],
+        optionalServices:[NUS]
+      });
+      device.addEventListener('gattserverdisconnected', onDisconnected);
+    }
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(NUS);
+    rx = await svc.getCharacteristic(NUS_RX);
+    const tx = await svc.getCharacteristic(NUS_TX);
+    await tx.startNotifications();
+    tx.addEventListener('characteristicvaluechanged', onNotify);
+    $('sub').textContent = (device.name||'LoRaDev')+' · connected '+time();
+    addSys('Connected to '+(device.name||'LoRaDev'));
+    setState('ready');   // the board also sends "Type a message:" when it is free
+  }catch(err){
+    setState('off', err.name==='NotFoundError' ? 'No device chosen' : 'Could not connect: '+err.message);
+  }
+}
+function onDisconnected(){
+  rx=null; setState('off','Disconnected. Tap Connect to reconnect.');
+  addSys('Bluetooth disconnected');
+}
+btn.addEventListener('click', ()=>{
+  if(state==='off') connect();
+  else if(device && device.gatt.connected) device.gatt.disconnect();
+});
+
+/* ---- send ---- */
+async function writeText(s){
+  const data = new TextEncoder().encode(s+'\n');
+  for(let i=0;i<data.length;i+=20){            // 20-byte pieces fit any Bluetooth packet size
+    const part=data.slice(i,i+20);
+    if(rx.writeValueWithResponse) await rx.writeValueWithResponse(part); else await rx.writeValue(part);
+  }
+}
+async function flushQueue(){
+  if(state!=='ready' || !rx || !queue.length) return;
+  const item=queue.shift();
+  try{
+    await writeText(item.text);
+    item.meta.textContent = time()+' · delivered to device';
+    lastOut=item.meta;
+  }catch(err){
+    item.meta.textContent='Not sent: '+err.message; item.meta.style.color='var(--bad)';
+  }
+}
+$('form').addEventListener('submit', e=>{
+  e.preventDefault();
+  const t=text.value.trim();
+  if(!t || plainLen(t)>MAX || state==='off') return;
+  const meta=addMsg('out', t, state==='busy' ? 'waiting for device…' : 'sending…');
+  queue.push({text:t, meta});
+  text.value=''; updateCount();
+  flushQueue();
+});
+text.addEventListener('input', updateCount);
+text.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); $('form').requestSubmit(); }
+});
+
+if(!navigator.bluetooth) $('nobt').hidden=false;
+setState('off');
+</script>
+</body>
+</html>
