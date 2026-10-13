@@ -90,7 +90,7 @@ textarea{flex:1;min-width:0;resize:none;font:inherit;color:var(--ink);background
 <header>
   <div class="dev">
     <h1>LoRaDev</h1>
-    <p id="sub">Bluetooth · LoRa 433.175 MHz · SF12</p>
+    <p id="sub">App v3 · Bluetooth · LoRa 433.175 MHz</p>
   </div>
   <span id="pill" class="pill off">Offline</span>
   <button id="connect" class="btn">Connect</button>
@@ -104,6 +104,7 @@ textarea{flex:1;min-width:0;resize:none;font:inherit;color:var(--ink);background
       <li>Tap <b>Connect</b> and choose <b>LoRaDev</b> (it may be listed as P2PSRV1).</li>
       <li>Write up to 42 characters and tap <b>Send</b>. Replies from ChirpStack appear here.</li>
     </ol>
+    <p style="margin:10px 0 0">Board not in the list? <button id="all" class="btn" type="button" style="padding:6px 10px;font-size:14px">Show all devices</button></p>
   </div>
   <div class="note" id="nobt" hidden>
     <b>This browser has no Bluetooth.</b> On iPhone, open this page in the free
@@ -189,21 +190,22 @@ function onNotify(e){
 }
 
 /* ---- connect / disconnect ---- */
-async function connect(){
+async function connect(all){
   if(!navigator.bluetooth){ $('nobt').hidden=false; return; }
   try{
     setState('connecting');
     if(!device){
       // The board's advertisement has no room for the 128-bit service ID, so find it by name.
       // (The iPhone may still show the old name P2PSRV1 from ST's test program.)
-      device = await navigator.bluetooth.requestDevice({
-        filters:[{namePrefix:'LoRaDev'},{namePrefix:'P2PSRV'},{services:[NUS]}],
-        optionalServices:[NUS]
-      });
+      device = await navigator.bluetooth.requestDevice(all
+        ? {acceptAllDevices:true, optionalServices:[NUS]}
+        : {filters:[{namePrefix:'LoRaDev'},{namePrefix:'P2PSRV'},{services:[NUS]}], optionalServices:[NUS]});
       device.addEventListener('gattserverdisconnected', onDisconnected);
     }
     const server = await device.gatt.connect();
-    const svc = await server.getPrimaryService(NUS);
+    let svc;
+    try{ svc = await server.getPrimaryService(NUS); }
+    catch(e){ device.gatt.disconnect(); device=null; throw new Error('that device has no LoRaDev UART service'); }
     rx = await svc.getCharacteristic(NUS_RX);
     const tx = await svc.getCharacteristic(NUS_TX);
     await tx.startNotifications();
@@ -219,8 +221,9 @@ function onDisconnected(){
   rx=null; setState('off','Disconnected. Tap Connect to reconnect.');
   addSys('Bluetooth disconnected');
 }
+$('all').addEventListener('click', ()=>{ if(state==='off'){ device=null; connect(true); } });
 btn.addEventListener('click', ()=>{
-  if(state==='off') connect();
+  if(state==='off') connect(false);
   else if(device && device.gatt.connected) device.gatt.disconnect();
 });
 
